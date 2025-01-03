@@ -3,104 +3,93 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <string.h>
 
 #define WIDTH 40
 #define HEIGHT 20
-#define SIZE 6
+#define MAX_NAME_LENGTH 100
+#define MAX_PLAYERS 100
 
-// Declarations
-// The array stores snake's coordinates
-int snakeX[100], snakeY[100];
+// Structure to store player data
+typedef struct {
+    char name[MAX_NAME_LENGTH];
+    int score;
+} Player;
 
-// Coordinates of snake's head and fruit
-int x, y, fruitX, fruitY;
+// Structure to store game state
+typedef struct {
+    int snakeX[MAX_PLAYERS], snakeY[MAX_PLAYERS];
+    int x, y, fruitX, fruitY;
+    int snakeTailLen;
+    int gameover, key, score, choice, optMain, temp;
+    Player currentPlayer;
+} GameState;
 
-// The variable stores the length of the snake's tail
-int snakeTailLen;
+GameState gameState;
 
-int gameover, key, score, choice, optMain, temp, playerIndex[SIZE];
+// Function prototypes
+void preMainMenu();
+void setup();
+void map();
+void input();
+void logic();
+void game();
+int comparePlayers(const void *a, const void *b);
+void loadLeaderboard(Player players[], int *size);
+void saveLeaderboard(Player players[], int size);
+void displayLeaderboard(Player players[], int size);
+void updateLeaderboard(char playerName[], int playerScore);
+void leaderboard();
+void searchPlayer();
+void mainMenu();
 
+// Function
 // Pre-MainMenu function
 void preMainMenu() {
-    // The array store player's name
-    printf("Please Enable Full-Screen Before Playing.\n\n");
-    char playerName[100];
+    printf("Please Enable Full-Screen Before Playing For Maximum Experience.\n\n");
+    Sleep(3000);
+    printf("Loading Game");
+    Sleep(700);
+    printf(".");
+    Sleep(700);
+    printf(".");
+    Sleep(700);
+    printf(".\n");
+    Sleep(700);
+    system("cls");
+    printf("Welcome to SnakeBit!\n");
+    Sleep(700);
+    
     do { 
-        printf("Please Input Your Name: ");
-        scanf("%s", playerName);
+        printf("Please Input Your Name (max 100): ");
+        scanf("%s", gameState.currentPlayer.name);
         system("cls");
-    } while(sizeof(playerName) > 100);
+    } while(strlen(gameState.currentPlayer.name) > MAX_NAME_LENGTH - 1);
 }
 
-// Leaderboard function
-void leaderboard() {
-    typedef struct{ //FORMAT PLAYER
-    char name[100];
-    int score;
-    }player;
-    player p[SIZE] = { //PENYIMPANAN DATA
-        {" ", 0},
-        {" ", 0},
-        {" ", 0},
-        {" ", 0},
-        {" ", 0},
-        {" ", 0} //YANG KE 6 INI BUAT DATA BARUNYA
-    };
-    process: //PENGULANGAN AJA
-    printf("Name and Score: ");
-    scanf("%s %d", p[playerIndex[5]].name, &p[playerIndex[5]].score); //INPUT NAMA DAN SKOR
-    
-    for(int i = 1; i <= SIZE; i++)  //simple initialization for the index array
-        playerIndex[i] = i;
-
-    //simple substitution sort, using the index
-    for(int i = 1; i <= SIZE - 1; i++) {
-        for(int j = i + 2; j <= SIZE; j++) {
-            if(p[playerIndex[i]].score < p[playerIndex[j]].score) { //compare through the index
-            temp = playerIndex[i];    //and swap only the indices
-            playerIndex[i] = playerIndex[j];
-            playerIndex[j] = temp;
-            }
-        } //BAGIAN INI DARI GOOGLE
-    }
-
-    printf("Players in unsorted order: \n\n");
-    for(int i = 1; i <= SIZE; i++){
-    printf("%20s  %d\n", p[i].name, p[i].score);
-    }
-    //HASIL DATA SORT TOP 5 (BISA DITAMBAH KALO MAU)
-    printf("\nPlayers sorted by scores: \n\n");
-    for(int i = 1; i <= 5; i++) {
-    printf("%20s  %d\n", p[playerIndex[i]].name, p[playerIndex[i]].score);
-    }
-    
-    goto process; //PENGULANGAN AJA
-}
-
-
-// Initial setup function
+// Setup function
 void setup() {
-    gameover = 0;
-    snakeTailLen = 0;
+    gameState.gameover = 0;
+    gameState.snakeTailLen = 0;
 
     // Initial coordinates of the snake
-    x = WIDTH / 2;
-    y = HEIGHT / 2;
+    gameState.x = WIDTH / 2;
+    gameState.y = HEIGHT / 2;
     
     // Initial coordinates of the fruit
-    fruitX = rand() % WIDTH;
-    fruitY = rand() % HEIGHT;
-    while(fruitX == 0)
-        fruitX = rand() % WIDTH;
+    gameState.fruitX = rand() % WIDTH;
+    gameState.fruitY = rand() % HEIGHT;
+    while(gameState.fruitX == 0)
+        gameState.fruitX = rand() % WIDTH;
 
-    while(fruitY == 0)
-        fruitY = rand() % HEIGHT;
+    while(gameState.fruitY == 0)
+        gameState.fruitY = rand() % HEIGHT;
 
     // Initial score
-    score = 0;
+    gameState.currentPlayer.score = 0;
 }
 
-// Draw map function
+// Map function
 void map() {
     // Clear screen
     system("cls");
@@ -119,20 +108,20 @@ void map() {
                 printf("|");
             
             // Creating snake's head with 'O'
-            if(i == y && j == x){
+            if(i == gameState.y && j == gameState.x){
                 printf("O");
             }
             
             // Creating fruits with '*'
-            else if(i == fruitY && j == fruitX) {
+            else if(i == gameState.fruitY && j == gameState.fruitX) {
                 printf("*");
             }
             
             // Creating snake's body with 'o'
             else {
                 int prTail = 0;
-                for(int k = 0 ; k < snakeTailLen; k++) {
-                    if(snakeX[k] == j && snakeY[k] == i) {
+                for(int k = 0 ; k < gameState.snakeTailLen; k++) {
+                    if(gameState.snakeX[k] == j && gameState.snakeY[k] == i) {
                         printf("o");
                         prTail = 1;
                     }
@@ -151,163 +140,319 @@ void map() {
     printf("\n");
 
     // Print score and instructions
-    printf("SCORE = %d\n", score);
+    printf("SCORE = %d\n", gameState.currentPlayer.score);
     printf("Press W, A, S, D for movement.\n");
-    printf("Press X to quit the game.");
+    printf("Press X to exit the game.");
 }
 
-// Movement function
+// Keyboard input function
 void input() {
     if(kbhit()) {
         switch (tolower(getch())) {
         case 'a':
-            if(key!=2)
-            key = 1;
+            if(gameState.key != 2)
+                gameState.key = 1;
             break;
+
         case 'd':
-            if(key!=1)
-            key = 2;
+            if(gameState.key != 1)
+                gameState.key = 2;
             break;
+
         case 'w':
-            if(key!=4)
-            key = 3;
+            if(gameState.key != 4)
+                gameState.key = 3;
             break;
+
         case 's':
-            if(key!=3)
-            key = 4;
+            if(gameState.key != 3)
+                gameState.key = 4;
             break;
+
         case 'x':
-            gameover = 1;
+            printf("Exiting game");
+            Sleep(700);
+            printf(".");
+            Sleep(700);
+            printf(".");
+            Sleep(700);
+            printf(".");
+            gameState.gameover = 1;
             break;
         }
     }
 }
 
-// Function for the movement logic that checks eat, move and collisions
+
+// Logic function
 void logic() {
-    // Updating the coordinates for continous movement of snake
-    int prevX = snakeX[0];
-    int prevY = snakeY[0];
+    // Updating the coordinates for continuous movement of snake
+    int prevX = gameState.snakeX[0];
+    int prevY = gameState.snakeY[0];
     int prev2X, prev2Y;
-    snakeX[0] = x;
-    snakeY[0] = y;
-    for (int i = 1; i < snakeTailLen; i++) {
-        prev2X = snakeX[i];
-        prev2Y = snakeY[i];
-        snakeX[i] = prevX;
-        snakeY[i] = prevY;
+    gameState.snakeX[0] = gameState.x;
+    gameState.snakeY[0] = gameState.y;
+
+    for (int i = 1; i < gameState.snakeTailLen; i++) {
+        prev2X = gameState.snakeX[i];
+        prev2Y = gameState.snakeY[i];
+        gameState.snakeX[i] = prevX;
+        gameState.snakeY[i] = prevY;
         prevX = prev2X;
         prevY = prev2Y;
     }
     
     // Changing the direction of movement of snake
-    switch(key) {
+    switch(gameState.key) {
         case 1:
-            x--;
+            gameState.x--;
             break;
         case 2:
-            x++;
+            gameState.x++;
             break;
         case 3:
-            y--;
+            gameState.y--;
             break;
         case 4:
-            y++;
+            gameState.y++;
             break;
         default:
             break;
     }
 
     // Game over scenarios
-    if(x < 1 || x >= WIDTH + 2 || y < 1 || y >= HEIGHT + 1)
-        gameover = 1;
+    if(gameState.x < 1 || gameState.x >= WIDTH + 2 || gameState.y < 1 || gameState.y >= HEIGHT + 1)
+        gameState.gameover = 1;
  
     // Checks for collision with the tail (o)
-    for(int i = 1; i <= snakeTailLen; i++) {
-        if(snakeX[i] == x && snakeY[i] == y)
-            gameover = 1;
+    for(int i = 1; i <= gameState.snakeTailLen; i++) {
+        if(gameState.snakeX[i] == gameState.x && gameState.snakeY[i] == gameState.y)
+            gameState.gameover = 1;
     }
 
     // Score updates and generation of new fruit
-    if(x == fruitX && y == fruitY) {
-        fruitX = rand() % WIDTH;
-        fruitY = rand() % HEIGHT;
-        while(fruitX == 0) {
-            fruitY = rand() % WIDTH;
+    if(gameState.x == gameState.fruitX && gameState.y == gameState.fruitY) {
+        gameState.fruitX = rand() % WIDTH;
+        gameState.fruitY = rand() % HEIGHT;
+        while(gameState.fruitX == 0) {
+            gameState.fruitX = rand() % WIDTH;
         }
-
-        while(fruitY == 0) {
-            fruitY = rand() % HEIGHT;
-            score += 10;
-            snakeTailLen++;     
+        while(gameState.fruitY == 0) {
+            gameState.fruitY = rand() % HEIGHT;
         }
+        gameState.currentPlayer.score += 10;
+        gameState.snakeTailLen++;
     }
 }
 
+// Game function
 void game() {
-    // Initial setup
-    setup();
+    // Game loop
+    while (1) {
+        setup();
+        while (!gameState.gameover) {
+            map();
+            input();
+            logic();
+            Sleep(70);
+        }
 
-    // Game loop starts here
-
-    while(!gameover) {
-    map();
-    input();
-    logic();
-    Sleep(70);
-    }
-
-    //Game Over
-    if (gameover == 1) {
+        // Game Over
         do {
             system("cls");
             printf("=== GAME OVER ===\n");
-            printf("SCORE: %d\n", score);
+            printf("SCORE: %d\n", gameState.currentPlayer.score);
+            updateLeaderboard(gameState.currentPlayer.name, gameState.currentPlayer.score);
             printf("1. Restart Game\n");
             printf("2. Exit to Main Menu\n");
-            printf("Enter your choice: ");
-            scanf("%d", &choice);
-            switch(choice) {
+            printf(">> ");
+            scanf("%d", &gameState.choice);
+            switch (gameState.choice) {
                 case 1:
-                    printf("Restarting game...\n");
-                    Sleep(3000);
-                    game();
-                break;
-
+                    break;
                 case 2:
-                    printf("Exiting to main menu...\n");
-                    Sleep(3000);
-                break;
-
+                    printf("Returning to main menu");
+                    Sleep(700);
+                    printf(".");
+                    Sleep(700);
+                    printf(".");
+                    Sleep(700);
+                    printf(".");
+                    system("cls");
+                    return;
                 default:
                     printf("Invalid choice. Please choose 1 or 2.\n");
-                    Sleep(400);
+                    Sleep(500);
             }
-        } while(choice < 1 || choice > 2);
+        } while (gameState.choice < 1 || gameState.choice > 2);
     }
 }
 
+// Compare function for qsort
+int comparePlayers(const void *a, const void *b) {
+    Player *playerA = (Player *)a;
+    Player *playerB = (Player *)b;
+        return playerB->score - playerA->score;
+    }
+
+// Load leaderboard from file
+void loadLeaderboard(Player players[], int *size) {
+    FILE *lb = fopen("leaderboard.txt", "r");
+    if (lb == NULL) {
+        *size = 0;
+        return;
+    }
+    *size = 0;
+    while (fscanf(lb, "%s - %d", players[*size].name, &players[*size].score) != EOF) {
+        (*size)++;
+    }
+    fclose(lb);
+}
+
+// Save leaderboard to file
+void saveLeaderboard(Player players[], int size) {
+    FILE *lb = fopen("leaderboard.txt", "w");
+    if (lb == NULL) {
+        perror("Error opening file");
+        return;
+    }
+    for (int i = 0; i < size; i++) {
+        fprintf(lb, "%s - %d\n", players[i].name, players[i].score);
+    }
+    fclose(lb);
+}
+
+
+// Update leaderboard with new player score
+void updateLeaderboard(char playerName[], int playerScore) {
+    Player players[MAX_PLAYERS];
+    int size;
+    loadLeaderboard(players, &size);
+
+    // Check if player already exists in leaderboard
+    int found = 0;
+    for (int i = 0; i < size; i++) {
+        if (strcmp(players[i].name, playerName) == 0) {
+            if (playerScore > players[i].score) {
+                players[i].score = playerScore;
+            }
+            found = 1;
+            break;
+        }
+    }
+
+    // If player doesn't exist, add new entry
+    if (!found && size < MAX_PLAYERS) {
+        strncpy(players[size].name, playerName, MAX_NAME_LENGTH - 1);
+        players[size].name[MAX_NAME_LENGTH - 1] = '\0';
+        players[size].score = playerScore;
+        size++;
+    }
+
+    // Sort leaderboard
+    qsort(players, size, sizeof(Player), comparePlayers);
+
+    // Save updated leaderboard
+    saveLeaderboard(players, size);
+}
+
+void displayLeaderboard(Player players[], int size) {
+    printf("=== LEADERBOARD ===\n");
+    for (int i = 0; i < size; i++) {
+        printf("%d. %s - %d\n", i + 1, players[i].name, players[i].score);
+    }
+}
+
+// Leaderboard function
+void leaderboard() {
+    system("cls");
+    Player players[MAX_PLAYERS];
+    int size;
+    loadLeaderboard(players, &size);
+    displayLeaderboard(players, size);
+    printf("\n");
+    printf("1. Search Player\n");
+    printf("2. Return to Main Menu\n");
+    printf(">> ");
+    scanf("%d", &gameState.choice);
+    switch (gameState.choice) {
+        case 1:
+            searchPlayer();
+            break;
+        case 2:
+            printf("Returning to main menu");
+            Sleep(700);
+            printf(".");
+            Sleep(700);
+            printf(".");
+            Sleep(700);
+            printf(".");
+            system("cls");
+            return;
+            
+        default:
+            printf("Invalid choice. Please choose 1 or 2.\n");
+            Sleep(500);
+    }
+}
+
+// Search player in leaderboard
+void searchPlayer() {
+    system("cls");
+    Player players[MAX_PLAYERS];
+    int size;
+    loadLeaderboard(players, &size);
+
+    char searchName[MAX_NAME_LENGTH]; printf("Enter player name to search: "); scanf("%s", searchName);
+
+    int found = 0;
+    for (int i = 0; i < size; i++) {
+        if (strcmp(players[i].name, searchName) == 0) {
+            printf("Player found: %s - %d\n", players[i].name, players[i].score);
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("Player not found.\n");
+    }
+
+    printf("\nPress any key to return to the main menu...\n"); getch();
+    printf("Returning to main menu");
+    Sleep(700);
+    printf(".");
+    Sleep(700);
+    printf(".");
+    Sleep(700);
+    printf(".");
+    system("cls");
+    return;
+}
+
+// MainMenu function
 void mainMenu() {
     system("cls");
     do{
         printf(
-        "\n"        
-        "███████ ███    ██  █████  ██   ██ ███████ ██████  ██ ████████\n"
-        "██      ████   ██ ██   ██ ██  ██  ██      ██   ██ ██    ██\n" 
-        "███████ ██ ██  ██ ███████ █████   █████   ██████  ██    ██\n" 
-        "     ██ ██  ██ ██ ██   ██ ██  ██  ██      ██   ██ ██    ██\n" 
-        "███████ ██   ████ ██   ██ ██   ██ ███████ ██████  ██    ██\n" 
-        "\n"
-        "1. Play\n"
-        "2. Leaderboard\n"
-        "3. Exit\n"
-        "\n"
-        ">> "
+            "\n"
+            "███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗██████╗ ██╗████████╗\n"
+            "██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗██║╚══██╔══╝\n"
+            "███████╗██╔██╗ ██║███████║█████╔╝ █████╗  ██████╔╝██║   ██║   \n"
+            "╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝  ██╔══██╗██║   ██║   \n"
+            "███████║██║ ╚████║██║  ██║██║  ██╗███████╗██████╔╝██║   ██║   \n"
+            "╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝   ╚═╝   \n"
+            "\n"
+            "1. Play\n"
+            "2. Leaderboard\n"
+            "3. Exit\n"
+            "\n"
+            ">> "
         );
 
-        scanf("%d", &optMain);
+        scanf("%d", &gameState.optMain);
 
-        switch(optMain) {
+        switch(gameState.optMain) {
             case 1: //Play
                 game();
             break;
@@ -317,15 +462,21 @@ void mainMenu() {
             break;
 
             case 3: //Exit
-                printf("See you next time! :D\n");
-                Sleep(3000);
+                printf("See you next time! ");
+                Sleep(700);
+                printf(":");
+                Sleep(700);
+                printf("D");
+                Sleep(700);
+                printf("!");
+                Sleep(1000);
             break;
 
             default: //Invalid input
                 printf("Invalid option! Please input the correct option D:\n");
             break;
         }
-    } while (optMain != 3);
+    } while (gameState.optMain != 3);
 }
 
 int main() {
